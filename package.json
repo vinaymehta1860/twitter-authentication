@@ -1,19 +1,21 @@
 {
-  "name": "twitter-auth",
-  "version": "1.0.0",
-  "description": "This is authentication service for Twiiter project",
-  "main": "server.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "Vinay Mehta",
-  "license": "MIT",
-  "devDependencies": {
-    "body-parser": "^1.19.0",
-    "cors": "^2.8.5",
-    "event-stream": "^4.0.1",
-    "express": "^4.17.1",
-    "mongoose": "^5.9.7",
-    "nodemon": "^2.0.2"
-  }
+	"name": "twitter-auth",
+	"version": "1.0.0",
+	"description": "This is authentication service for Twiiter project",
+	"main": "server.js",
+	"scripts": {
+		"start": "nodemon server.js",
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"author": "Vinay Mehta",
+	"license": "MIT",
+	"devDependencies": {
+		"body-parser": "^1.19.0",
+		"cookie-parser": "^1.4.5",
+		"cors": "^2.8.5",
+		"event-stream": "^4.0.1",
+		"express": "^4.17.1",
+		"mongoose": "^5.9.7",
+		"nodemon": "^2.0.2"
+	}
 }
