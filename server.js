@@ -8,6 +8,7 @@ var db = mongoose
 		useNewUrlParser: true,
 		useFindAndModify: false,
 		useUnifiedTopology: true,
+		autoIndex: false,
 	})
 	.then(
 		function () {

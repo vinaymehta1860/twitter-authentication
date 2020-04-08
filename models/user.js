@@ -7,9 +7,11 @@ var user = new Schema({
 	salt: { type: String },
 	passwordHash: { type: String },
 	email: { type: String, unique: true, required: true },
-	sessionToken: { type: String },
+	sessionToken: { type: String, default: null },
 	dateCreated: { type: String, default: new Date().toString() },
 	loginHistory: [String],
 });
+
+user.index({ email: 1, type: 1 });
 
 module.exports = mongoose.model('user', user);
