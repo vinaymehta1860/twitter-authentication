@@ -1,6 +1,11 @@
 // User model
 const users = require('../models/user');
 
+fetchAllUsers = async () => {
+	const allUsers = await users.find({});
+	return allUsers;
+};
+
 userWithEmailExists = async (email) => {
 	const userFound = await users.find({ email });
 	return !(userFound.length === 0);
@@ -17,8 +22,8 @@ getUserByEmail = async (email) => {
 };
 
 createUser = async (user) => {
-	const createdUser = new users(user);
-	return createdUser;
+	const newUser = new users(user);
+	return newUser;
 };
 
 saveUser = async (user) => {
@@ -41,6 +46,7 @@ deleteUserByEmail = async (email) => {
 module.exports = {
 	createUser,
 	deleteUserByEmail,
+	fetchAllUsers,
 	getUserByEmail,
 	saveUser,
 	updateUserByEmail,

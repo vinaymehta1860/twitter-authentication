@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const {
 	createUser,
 	deleteUserByEmail,
+	fetchAllUsers,
 	getUserByEmail,
 	saveUser,
 	updateUserByEmail,
@@ -40,6 +41,10 @@ verifyPassword = (password, passwordHash, salt) => {
 	} else {
 		return false;
 	}
+};
+
+getAllUsers = async () => {
+	return fetchAllUsers();
 };
 
 doesUserWithEmailExists = async (email) => {
@@ -95,18 +100,26 @@ signinUser = async (email, password) => {
 signoutUser = async (email) => {
 	let user = await getUserByEmail(email);
 
-	user.sessionToken = null;
+	if (user) {
+		user.sessionToken = null;
 
-	user = await updateUserByEmail(email, user);
+		user = await updateUserByEmail(email, user);
 
-	return true;
+		return true;
+	} else {
+		return false;
+	}
 };
 
 isSessionTokenValid = async (email, sessionToken) => {
 	const user = await getUserByEmail(email);
 
-	if (sessionToken === user.sessionToken) {
-		return true;
+	if (user) {
+		if (sessionToken === user.sessionToken) {
+			return true;
+		} else {
+			return false;
+		}
 	} else {
 		return false;
 	}
@@ -114,6 +127,7 @@ isSessionTokenValid = async (email, sessionToken) => {
 
 module.exports = {
 	doesUserWithEmailExists,
+	getAllUsers,
 	isSessionTokenValid,
 	signinUser,
 	signupUser,

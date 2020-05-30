@@ -8,11 +8,13 @@ const bodyParser = require('body-parser'),
 // Utility functions
 const {
 	doesUserWithEmailExists,
+	getAllUsers,
 	isSessionTokenValid,
 	signinUser,
 	signupUser,
 	signoutUser,
 } = require('../utils/auth');
+const { logNewUser } = require('../utils/external-calls');
 
 // Router configuration so that apis can use cookies that are passed in
 router.use(
@@ -46,6 +48,18 @@ sendErrorResponse = (res = {}, options = {}) => {
 	});
 };
 
+// Test route to get all the users
+router.get('/users', async (req, res) => {
+	const users = await getAllUsers();
+
+	if (users.length) {
+		sendSuccessResponse(res, {
+			message: 'Users successfuly fetched',
+			payload: users,
+		});
+	}
+});
+
 /**
  * Sign up route
  * @param {String} email
@@ -69,6 +83,8 @@ router.post('/signup', async (req, res) => {
 				message: 'User successfully created and signed in.',
 				payload: signedinUser,
 			});
+
+			logNewUser(signedinUser);
 		} else {
 			sendErrorResponse(res, {
 				code: 111,
@@ -133,6 +149,7 @@ router.post('/signout', async (req, res) => {
 });
 
 /**
+ * TODO: Update this function to look for a user by his id and not email
  * Route to validate user's sessionToken
  * @param {String} email
  * @param {String} sessionToken
