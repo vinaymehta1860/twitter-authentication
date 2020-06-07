@@ -3,11 +3,19 @@ const crypto = require('crypto');
 const {
 	createUser,
 	deleteUserByEmail,
+	fetchAllUsers,
 	getUserByEmail,
 	saveUser,
 	updateUserByEmail,
 	userWithEmailExists,
+	userWithIdExists,
 } = require('./dbqueries');
+
+const {
+	createAccessToken,
+	createRefreshToken,
+	setRefreshTokenCookie,
+} = require('./jwt');
 
 logData = (string, data) => {
 	console.log(`${string}: ${data}`);
@@ -42,6 +50,10 @@ verifyPassword = (password, passwordHash, salt) => {
 	}
 };
 
+getAllUsers = async () => {
+	return fetchAllUsers();
+};
+
 doesUserWithEmailExists = async (email) => {
 	return userWithEmailExists(email);
 };
@@ -74,13 +86,19 @@ signinUser = async (email, password) => {
 		if (user.sessionToken === null) {
 			const sessionToken = getSessionToken({ email: user.email });
 			const currentTime = new Date();
+			const access_token = createAccessToken(user.id);
+			const refresh_token = createRefreshToken(user.id);
 
 			user.sessionToken = sessionToken;
 			user.loginHistory.push(currentTime.toString());
 
 			await saveUser(user);
 
-			return user;
+			return {
+				signedinUser: user,
+				access_token,
+				refresh_token,
+			};
 		} else {
 			// If user already has a sessionToken, then don't create a new one and
 			//  don't push a new entry in loginHostory array, just return the user
@@ -95,25 +113,39 @@ signinUser = async (email, password) => {
 signoutUser = async (email) => {
 	let user = await getUserByEmail(email);
 
-	user.sessionToken = null;
+	if (user) {
+		user.sessionToken = null;
 
-	user = await updateUserByEmail(email, user);
+		user = await updateUserByEmail(email, user);
 
-	return true;
-};
-
-isSessionTokenValid = async (email, sessionToken) => {
-	const user = await getUserByEmail(email);
-
-	if (sessionToken === user.sessionToken) {
 		return true;
 	} else {
 		return false;
 	}
 };
 
+isSessionTokenValid = async (email, sessionToken) => {
+	const user = await getUserByEmail(email);
+
+	if (user) {
+		if (sessionToken === user.sessionToken) {
+			return true;
+		} else {
+			return false;
+		}
+	} else {
+		return false;
+	}
+};
+
+doesUserWithIdExists = async (userId) => {
+	return userWithIdExists(userId);
+};
+
 module.exports = {
 	doesUserWithEmailExists,
+	doesUserWithIdExists,
+	getAllUsers,
 	isSessionTokenValid,
 	signinUser,
 	signupUser,

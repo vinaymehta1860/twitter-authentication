@@ -7,12 +7,26 @@ const bodyParser = require('body-parser'),
 
 // Utility functions
 const {
+	doesUserWithIdExists,
 	doesUserWithEmailExists,
+	getAllUsers,
 	isSessionTokenValid,
 	signinUser,
 	signupUser,
 	signoutUser,
 } = require('../utils/auth');
+
+const {
+	createAccessToken,
+	createRefreshToken,
+	clearRefreshTokenCookie,
+	setRefreshTokenCookie,
+	verifyAccessToken,
+	verifyRefeshToken,
+	verifySubjectOnRefreshToken,
+} = require('../utils/jwt');
+
+const { logNewUser } = require('../utils/external-calls');
 
 // Router configuration so that apis can use cookies that are passed in
 router.use(
@@ -46,6 +60,18 @@ sendErrorResponse = (res = {}, options = {}) => {
 	});
 };
 
+// Test route to get all the users
+router.get('/users', async (req, res) => {
+	const users = await getAllUsers();
+
+	if (users.length) {
+		sendSuccessResponse(res, {
+			message: 'Users successfuly fetched',
+			payload: users,
+		});
+	}
+});
+
 /**
  * Sign up route
  * @param {String} email
@@ -63,12 +89,20 @@ router.post('/signup', async (req, res) => {
 		const newUser = await signupUser(req.body);
 
 		if (newUser) {
-			const signedinUser = await signinUser(req.body.email, req.body.password);
+			const { signedinUser, access_token, refresh_token } = await signinUser(
+				req.body.email,
+				req.body.password
+			);
+
+			// Set the cookie on responseObject
+			setRefreshTokenCookie(res, refresh_token);
 
 			sendSuccessResponse(res, {
 				message: 'User successfully created and signed in.',
-				payload: signedinUser,
+				payload: { signedinUser, access_token },
 			});
+
+			logNewUser(signedinUser);
 		} else {
 			sendErrorResponse(res, {
 				code: 111,
@@ -89,12 +123,18 @@ router.post('/signin', async (req, res) => {
 	const userExists = await doesUserWithEmailExists(req.body.email);
 
 	if (userExists) {
-		const signedinUser = await signinUser(req.body.email, req.body.password);
+		const { signedinUser, access_token, refresh_token } = await signinUser(
+			req.body.email,
+			req.body.password
+		);
+
+		// Set the cookie on responseObject
+		setRefreshTokenCookie(res, refresh_token);
 
 		if (signedinUser) {
 			sendSuccessResponse(res, {
 				message: 'User successfuly signed in.',
-				payload: signedinUser,
+				payload: { signedinUser, access_token },
 			});
 		} else {
 			sendErrorResponse(res, {
@@ -121,6 +161,9 @@ router.post('/signout', async (req, res) => {
 	if (userExists) {
 		await signoutUser(req.body.email);
 
+		// Clear the cookie from response object
+		clearRefreshTokenCookie(res);
+
 		sendSuccessResponse(res, {
 			message: 'User successfully logged out.',
 		});
@@ -133,34 +176,116 @@ router.post('/signout', async (req, res) => {
 });
 
 /**
- * Route to validate user's sessionToken
- * @param {String} email
- * @param {String} sessionToken
- * @returns {Promise} which resolves to either true or false depending on if the sessionToken is valid or not
+ * Function that validates access token. NEVER TO BE USED BY CLIENTS. IT'S JUST FOR TESTING.
+ * @param {String} userId query param to be sent along with request uri
+ * @param {String} access_token access_token to be sent along with header in request as `Bearer <access_token>`
  */
-router.post('/validate/session', async (req, res) => {
-	const userExists = doesUserWithEmailExists(req.body.email);
+router.post('/validateAccessToken/:userId', async (req, res) => {
+	try {
+		const authorizationHeader = req.headers.authorization;
+		const access_token = authorizationHeader.split(' ')[1];
 
-	if (userExists) {
-		const isSessionValid = await isSessionTokenValid(
-			req.body.email,
-			req.body.sessionToken
+		const isTokenValid = await verifyAccessToken(
+			access_token,
+			req.params.userId
 		);
 
-		if (isSessionValid) {
+		if (isTokenValid) {
+			res.send({
+				success: true,
+				payload: { message: 'Token verified' },
+			});
+		} else {
+			res.send({ success: false });
+		}
+	} catch (err) {
+		console.log(`Error: ${err}`);
+
+		res.send({
+			success: false,
+			message: err,
+		});
+	}
+});
+
+/**
+ * Function that clients can use to get new access_token by passing in refresh_token
+ * @param {String} userId query param to be sent along with request uri
+ * @param {String} refresh_token refresh_token to be sent along with header in request as `Bearer <refresh_token>`
+ */
+router.get('/getRefreshToken/:userId', async (req, res) => {
+	try {
+		// Get the refresh token from cookie
+		const refresh_token = req.cookies.refreshtoken;
+
+		if (verifyRefeshToken(refresh_token, req.params.userId)) {
+			// Check if the user with userId exists or not
+			if (doesUserWithIdExists(req.params.userId)) {
+				// Clear the refresh token from cookie
+				clearRefreshTokenCookie(res);
+
+				const new_access_token = createAccessToken(req.params.userId);
+				const new_refresh_token = createRefreshToken(req.params.userId);
+
+				// Set the refresh token on response object
+				setRefreshTokenCookie(res, new_refresh_token);
+
+				sendSuccessResponse(res, {
+					message: 'Refresh token successfully created.',
+					payload: new_access_token,
+				});
+			} else {
+				sendErrorResponse(res, {
+					code: 402,
+					message: "User with provided userId doesn't exist",
+				});
+			}
+		} else {
+			sendErrorResponse(res, {
+				code: 402,
+				message: `Refresh token on cookie is not valid. Sign in again.`,
+			});
+		}
+	} catch (err) {
+		console.log(
+			`Error while creating refresh token. Sign in again. Error: ${err}`
+		);
+
+		sendErrorResponse(res, {
+			code: 401,
+			message: `Error while creating refresh token. Sign in again. Error description: ${err}`,
+		});
+	}
+});
+
+/**
+ * Function that validates refresh token. NEVER TO BE USED BY CLIENTS. IT'S JUST FOR TESTING.
+ * @param {String} userId query param to be sent along with request uri
+ * @param {String} refresh_token token string to be sent in cookie along with request
+ */
+router.post('/validateRefreshToken/:userId', async (req, res) => {
+	try {
+		// Get the refresh token from cookie
+		const refresh_token = req.signedCookies.refreshtoken;
+
+		if (verifyRefeshToken(refresh_token, req.params.userId)) {
 			sendSuccessResponse(res, {
-				message: 'Session token is valid.',
+				message: 'Refresh token successfully validated.',
 			});
 		} else {
 			sendErrorResponse(res, {
-				code: 104,
-				message: 'Session token is not valid.',
+				code: 402,
+				message: `Refresh token on cookie is not valid. Sign in again.`,
 			});
 		}
-	} else {
+	} catch (err) {
+		console.log(
+			`Error while creating refresh token. Sign in again. Error: ${err}`
+		);
+
 		sendErrorResponse(res, {
-			code: 102,
-			message: 'User with provided email address does not exist.',
+			code: 401,
+			message: `Error while creating refresh token. Sign in again. Error description: ${err}`,
 		});
 	}
 });
