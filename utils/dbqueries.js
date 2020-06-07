@@ -11,6 +11,12 @@ userWithEmailExists = async (email) => {
 	return !(userFound.length === 0);
 };
 
+userWithIdExists = async (userId) => {
+	const userFound = await users.findById(userId);
+	console.log(`Result: ${userFound}`);
+	return userFound;
+};
+
 getUserByEmail = async (email) => {
 	const user = await users.find({ email });
 
@@ -51,4 +57,5 @@ module.exports = {
 	saveUser,
 	updateUserByEmail,
 	userWithEmailExists,
+	userWithIdExists,
 };

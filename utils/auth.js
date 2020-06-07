@@ -8,7 +8,14 @@ const {
 	saveUser,
 	updateUserByEmail,
 	userWithEmailExists,
+	userWithIdExists,
 } = require('./dbqueries');
+
+const {
+	createAccessToken,
+	createRefreshToken,
+	setRefreshTokenCookie,
+} = require('./jwt');
 
 logData = (string, data) => {
 	console.log(`${string}: ${data}`);
@@ -79,13 +86,19 @@ signinUser = async (email, password) => {
 		if (user.sessionToken === null) {
 			const sessionToken = getSessionToken({ email: user.email });
 			const currentTime = new Date();
+			const access_token = createAccessToken(user.id);
+			const refresh_token = createRefreshToken(user.id);
 
 			user.sessionToken = sessionToken;
 			user.loginHistory.push(currentTime.toString());
 
 			await saveUser(user);
 
-			return user;
+			return {
+				signedinUser: user,
+				access_token,
+				refresh_token,
+			};
 		} else {
 			// If user already has a sessionToken, then don't create a new one and
 			//  don't push a new entry in loginHostory array, just return the user
@@ -125,8 +138,13 @@ isSessionTokenValid = async (email, sessionToken) => {
 	}
 };
 
+doesUserWithIdExists = async (userId) => {
+	return userWithIdExists(userId);
+};
+
 module.exports = {
 	doesUserWithEmailExists,
+	doesUserWithIdExists,
 	getAllUsers,
 	isSessionTokenValid,
 	signinUser,
