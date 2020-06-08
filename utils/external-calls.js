@@ -4,7 +4,6 @@ const axios = require('axios');
  * Function that will call the endpoint in tweet service to log a new user
  */
 logNewUser = async (user = {}) => {
-	console.log(`New User: ${JSON.stringify(user)}`);
 	const loggedUser = await axios({
 		url: 'http://localhost:8080/tweets/users',
 		method: 'post',

@@ -10,7 +10,6 @@ const {
 	doesUserWithIdExists,
 	doesUserWithEmailExists,
 	getAllUsers,
-	isSessionTokenValid,
 	signinUser,
 	signupUser,
 	signoutUser,
@@ -64,10 +63,15 @@ sendErrorResponse = (res = {}, options = {}) => {
 router.get('/users', async (req, res) => {
 	const users = await getAllUsers();
 
-	if (users.length) {
+	if (users.length >= 0) {
 		sendSuccessResponse(res, {
 			message: 'Users successfuly fetched',
 			payload: users,
+		});
+	} else {
+		sendErrorResponse(res, {
+			code: 404,
+			message: 'No users found',
 		});
 	}
 });
@@ -116,7 +120,6 @@ router.post('/signup', async (req, res) => {
 /**
  * Sign in route
  * @param {String} email
- * @param {String} sessionToken
  * @returns {Promise} which resolves to user object given that sign in is successfull
  */
 router.post('/signin', async (req, res) => {

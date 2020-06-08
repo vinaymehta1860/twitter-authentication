@@ -7,7 +7,6 @@ var user = new Schema({
 	salt: { type: String },
 	passwordHash: { type: String },
 	email: { type: String, unique: true, required: true },
-	sessionToken: { type: String, default: null },
 	dateCreated: { type: String, default: new Date().toString() },
 	loginHistory: [String],
 });
