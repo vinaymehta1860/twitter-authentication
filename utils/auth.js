@@ -29,15 +29,6 @@ getPasswordHash = (password, salt) => {
 	return crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
 };
 
-getSessionToken = (params = {}) => {
-	const sessionToken = crypto
-		.createHmac('sha256', params.email)
-		.update(Date.now().toString())
-		.digest('hex');
-
-	return sessionToken;
-};
-
 verifyPassword = (password, passwordHash, salt) => {
 	const hash = crypto
 		.pbkdf2Sync(password, salt, 1000, 64, 'sha512')
@@ -83,28 +74,19 @@ signinUser = async (email, password) => {
 	);
 
 	if (isPasswordCorrect) {
-		if (user.sessionToken === null) {
-			const sessionToken = getSessionToken({ email: user.email });
-			const currentTime = new Date();
-			const access_token = createAccessToken(user.id);
-			const refresh_token = createRefreshToken(user.id);
+		const currentTime = new Date();
+		const access_token = createAccessToken(user.id);
+		const refresh_token = createRefreshToken(user.id);
 
-			user.sessionToken = sessionToken;
-			user.loginHistory.push(currentTime.toString());
+		user.loginHistory.push(currentTime.toString());
 
-			await saveUser(user);
+		await saveUser(user);
 
-			return {
-				signedinUser: user,
-				access_token,
-				refresh_token,
-			};
-		} else {
-			// If user already has a sessionToken, then don't create a new one and
-			//  don't push a new entry in loginHostory array, just return the user
-			//  and keep him in signed in state
-			return user;
-		}
+		return {
+			signedinUser: user,
+			access_token,
+			refresh_token,
+		};
 	} else {
 		return false;
 	}
@@ -114,25 +96,9 @@ signoutUser = async (email) => {
 	let user = await getUserByEmail(email);
 
 	if (user) {
-		user.sessionToken = null;
-
 		user = await updateUserByEmail(email, user);
 
 		return true;
-	} else {
-		return false;
-	}
-};
-
-isSessionTokenValid = async (email, sessionToken) => {
-	const user = await getUserByEmail(email);
-
-	if (user) {
-		if (sessionToken === user.sessionToken) {
-			return true;
-		} else {
-			return false;
-		}
 	} else {
 		return false;
 	}
@@ -146,7 +112,6 @@ module.exports = {
 	doesUserWithEmailExists,
 	doesUserWithIdExists,
 	getAllUsers,
-	isSessionTokenValid,
 	signinUser,
 	signupUser,
 	signoutUser,
